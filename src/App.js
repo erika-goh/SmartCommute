@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
+import useDirections from './hooks/useDirections';
 import SearchPanel from './components/SearchPanel';
 import RouteList from './components/RouteList';
 import MapContainer from './components/MapContainer';
@@ -7,75 +8,26 @@ import MapContainer from './components/MapContainer';
 function App() {
   const [origin, setOrigin] = useState(null);
   const [destination, setDestination] = useState(null);
-  const [routes, setRoutes] = useState([]);
   const [selectedRoute, setSelectedRoute] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [showTransitLayer, setShowTransitLayer] = useState(true);
 
-  const calculateRoutes = async () => {
-    if (!origin || !destination) return;
+  const { routes, loading: isLoading, error, refresh } = useDirections({ origin, destination });
 
-    setIsLoading(true);
-    setError(null);
-    setRoutes([]);
-
-    try {
-      const directionsService = new window.google.maps.DirectionsService();
-      const modeStrings = ['DRIVING', 'TRANSIT', 'BICYCLING', 'WALKING'];
-      const modes = modeStrings.map(m => window.google.maps.TravelMode[m]);
-
-      const requests = modes.map((mode, idx) => {
-        const request = {
-          origin,
-          destination,
-          travelMode: mode,
-          provideRouteAlternatives: true,
-        };
-        if (mode === window.google.maps.TravelMode.DRIVING) {
-          request.drivingOptions = {
-            departureTime: new Date(),
-            trafficModel: window.google.maps.TrafficModel.BEST_GUESS,
-          };
-        }
-        return directionsService.route(request);
+  // Keep selectedRoute in sync when routes update
+  useEffect(() => {
+    if (routes && routes.length > 0) {
+      setSelectedRoute((prev) => {
+        if (prev) return prev;
+        return routes[0];
       });
-
-      const responses = await Promise.all(requests.map(p => p.catch(() => null)));
-
-      const allRoutes = [];
-      responses.forEach((result, idx) => {
-        if (result && result.routes) {
-          result.routes.forEach(route => {
-            const leg = route.legs[0];
-            allRoutes.push({
-              directionsRoute: route,
-              directionsResult: { routes: [route] },
-              travelMode: modeStrings[idx],
-              distance: leg.distance.text,
-              duration: leg.duration.text,
-              durationValue: leg.duration.value,
-              stepsModes: leg.steps.map(step => step.travel_mode).join(' → '),
-            });
-          });
-        }
-      });
-
-      // Sort fastest first
-      allRoutes.sort((a, b) => a.durationValue - b.durationValue);
-
-      setRoutes(allRoutes);
-      if (allRoutes.length > 0) setSelectedRoute(allRoutes[0]);
-    } catch (err) {
-      setError('Failed to calculate routes. Check API key, connection, or try again.');
-    } finally {
-      setIsLoading(false);
+    } else {
+      setSelectedRoute(null);
     }
-  };
+  }, [routes]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
-      <Header />
+      <Header onRefresh={refresh} />
       <div className="flex flex-1 overflow-hidden">
         <div className="w-full md:w-96 bg-white shadow-lg flex flex-col">
           <SearchPanel
@@ -83,7 +35,7 @@ function App() {
             destination={destination}
             onOriginChange={setOrigin}
             onDestinationChange={setDestination}
-            onSearch={calculateRoutes}
+            onSearch={refresh}
             isLoading={isLoading}
             showTransitLayer={showTransitLayer}
             setShowTransitLayer={setShowTransitLayer}
@@ -94,7 +46,7 @@ function App() {
             onSelectRoute={setSelectedRoute}
             isLoading={isLoading}
             error={error}
-            onRefresh={calculateRoutes}
+            onRefresh={refresh}
             hasLocations={!!origin && !!destination}
           />
         </div>
