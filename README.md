@@ -17,17 +17,3 @@ A React app prototype to find and compare commute routes (Driving, Transit, Bike
 - Map auto-fits to the selected route bounds and single-route rendering to avoid overlay duplication. 
 - Mobile responsive layout using Tailwind CSS. 
 
----
-
-## Project Structure 
-
-src/
-├── components/
-│   ├── Header.js
-│   ├── SearchPanel.js
-│   ├── RouteList.js
-│   └── MapContainer.js
-├── App.js
-├── index.js
-└── index.css
-
